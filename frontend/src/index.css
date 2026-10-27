@@ -1,0 +1,31 @@
+:root { color-scheme: dark; --bg: #161a20; --surface: #1e242e; --border: #2e3642; --fg: #e8ecf1; --muted: #9aa4b2; --accent: #7fd08a; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 13px/1.45 system-ui, sans-serif; }
+.topbar { height: 56px; display: flex; align-items: center; justify-content: space-between; padding: 0 24px; border-bottom: 1px solid var(--border); }
+.brand { display: flex; gap: 10px; align-items: center; }
+.brand-name { font-weight: 650; }
+.workspace-name, .engine-label { color: var(--muted); font-size: 11px; }
+.job-state { display: flex; gap: 8px; align-items: center; font-size: 11px; color: var(--muted); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); }
+.dot.working { background: #e8c547; animation: pulse 1s infinite alternate; }
+@keyframes pulse { to { opacity: 0.4; } }
+main { max-width: 1100px; margin: 0 auto; padding: 24px; }
+h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+.intro { color: var(--muted); margin: 6px 0 18px; }
+.dropzone { display: grid; place-items: center; gap: 4px; padding: 32px; border: 1px dashed var(--border); border-radius: 8px; cursor: pointer; text-align: center; }
+.dropzone.dragging { border-color: var(--accent); background: #1c2620; }
+.dropzone small { color: var(--muted); }
+.progress { display: flex; gap: 12px; align-items: center; margin-top: 12px; }
+.bar { height: 4px; flex: 1; background: var(--accent); border-radius: 4px; transition: width 0.3s; }
+.err { color: #e88; }
+.stems { margin-top: 20px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); padding: 16px; }
+.stems-head { display: flex; justify-content: space-between; align-items: center; }
+.pill { background: #2a3340; border-radius: 4px; padding: 2px 8px; font-size: 11px; color: var(--muted); }
+.stem-row { display: grid; grid-template-columns: 90px 1fr 140px 80px; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--border); }
+.stem-name { text-transform: capitalize; font-weight: 600; }
+.stem-btns { display: flex; gap: 6px; }
+button, .exports a { background: #2a3340; color: var(--fg); border: 1px solid var(--border); border-radius: 5px; padding: 5px 10px; cursor: pointer; text-decoration: none; font-size: 12px; }
+button:disabled { opacity: 0.4; cursor: default; }
+button.on { background: var(--accent); color: #14201a; }
+.exports { display: flex; gap: 8px; }
+.na { color: var(--muted); }
