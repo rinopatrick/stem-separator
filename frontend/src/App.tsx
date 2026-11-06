@@ -134,7 +134,9 @@ export default function App() {
                   <>
                     <a href={stemUrl(job.job_id, s)} download={`${s}.wav`}>WAV</a>
                     <a href={previewUrl(job.job_id, s, "mp3")}>Preview</a>
-                    <audio ref={(el) => { audioRefs.current[s] = el; }} src={previewUrl(job.job_id, s)} preload="none" />
+                    <audio ref={(el) => { audioRefs.current[s] = el; }} src={previewUrl(job.job_id, s)} preload="none">
+                      <source src={stemUrl(job.job_id, s)} type="audio/wav" />
+                    </audio>
                   </>
                 ) : <span className="na">—</span>}
               </div>

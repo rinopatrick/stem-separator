@@ -110,16 +110,14 @@ def download_stem(job_id: str, stem: str):
 def download_preview(job_id: str, stem: str, fmt: str):
     import preview as preview_module
 
-    if stem not in config.STEMS and stem != "residual":
-        raise HTTPException(404, "unknown stem")
-    if fmt not in preview_module.FORMATS:
-        raise HTTPException(404, "unknown preview format")
     job_dir = config.RESULT_DIR / job_id
     if not (job_dir / f"{stem}.wav").exists():
         raise HTTPException(404, "stem not ready")
     try:
         p = preview_module.get_preview(job_dir, stem, fmt=fmt)
-    except (KeyError, FileNotFoundError):
+    except KeyError:
+        raise HTTPException(404, "unknown stem or preview format")
+    except FileNotFoundError:
         raise HTTPException(404, "preview not ready")
     media = "audio/ogg" if fmt == "opus" else "audio/mpeg"
     return FileResponse(str(p), media_type=media, filename=p.name)

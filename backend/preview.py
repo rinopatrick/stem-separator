@@ -8,6 +8,8 @@ dir invalidates them by construction.
 Loudness: single-pass gain to a -16 LUFS target measured on the
 mean-square energy with a fixed calibration offset, then a true-peak
 ceiling at -1 dBFS so quiet stems get gain but nothing clips.
+The measure is an energy approximation, not gated K-weighting:
+callers and docs say "about -16 LUFS" (spec wording) for that reason.
 """
 
 from pathlib import Path
@@ -25,6 +27,10 @@ _EPS = 1e-12
 
 
 def measure_lufs(audio: np.ndarray) -> float:
+    """Energy-based loudness approximation (about -16 LUFS target).
+
+    Mean-square with a fixed calibration offset, not gated K-weighting.
+    Good enough for audition previews; never presented as mastering-grade."""
     a = np.asarray(audio, dtype=np.float64)
     ms = float(np.mean(a * a)) + _EPS
     return float(10.0 * np.log10(ms) - _K_OFF_DB)
@@ -78,10 +84,5 @@ def get_preview(job_dir: Path, stem: str, fmt: str = "opus") -> Path:
                     normed, opus_sr // g, sr // g, axis=0).astype(np.float32)
         sf.write(str(out), opus_audio, opus_sr, format="OGG", subtype="OPUS")
     else:
-        try:
-            sf.write(str(out), normed, sr, format="MP3")
-        except Exception:
-            # libsndfile build without MP3: same normalized payload,
-            # wav container under the mp3 cache name.
-            sf.write(str(out), normed, sr, format="WAV")
+        sf.write(str(out), normed, sr, format="MP3")
     return out

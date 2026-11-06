@@ -191,8 +191,11 @@ def test_golden_floors_match_recorded_baseline():
                 {s: got[s] for s in ("piano", "guitar", "strings", "synth")})
             for stem, floor in expected.items():
                 mean = scored[stem]["sisdr_db"]
-                assert abs(mean - floor) <= TOL_DB, (
-                    f"{name}/{stem}: {mean} vs recorded {floor}")
+                # Floor, not pin: regressions below the measured mean
+                # fail; improvements above it pass. Tolerance absorbs
+                # platform float wobble.
+                assert mean >= floor - TOL_DB, (
+                    f"{name}/{stem}: {mean} below recorded floor {floor}")
 
 
 # Measured once on this deterministic synth (3 runs, spread 0.0,

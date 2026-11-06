@@ -126,3 +126,34 @@ def test_api_preview_after_job_returns_normalized_audio():
         for p in job_dir.glob("*"):
             p.unlink()
         job_dir.rmdir()
+
+def test_api_job_list_cancel_and_status_shape():
+    import fakeredis
+    from fastapi.testclient import TestClient
+    from rq import Queue
+    from rq.job import Job
+    from rq.registry import FinishedJobRegistry
+
+    import app
+    import config
+    import worker_job
+
+    fake = fakeredis.FakeRedis()
+    app.redis = fake
+    app.queue = Queue("separate", connection=fake)
+    client = TestClient(app.app)
+    job = app.queue.enqueue(worker_job.job_separate, "jid-nine", "mix.wav", job_id="jid-nine")
+    fetched = Job.fetch("jid-nine", connection=fake)
+    assert fetched.id == job.id
+    r = client.get("/jobs")
+    assert r.status_code == 200
+    assert set(r.json()) == {"jobs"}
+    reg = FinishedJobRegistry("separate", connection=fake)
+    for jid in reg.get_job_ids():
+        assert isinstance(jid, str)
+    r = client.delete("/jobs/does-not-exist")
+    assert r.status_code == 404
+    r = client.get("/health")
+    assert r.status_code == 200
+    assert set(r.json()["stems"]) == set(config.STEMS)
+    assert len(r.json()["stems"]) == 9

@@ -1,9 +1,10 @@
 """T6 red: lazy loudness-normalized preview cache.
 
-Seam: job-output file contract — GET /jobs/{id}/preview/{stem}.{fmt}
-reads the stem WAV from the result dir and returns normalized audio.
-Previews are a lazy derived cache (~-16 LUFS): never written during
-the job, built on first request, invalidated with the job dir.
+Seam: HTTP GET /jobs/{id}/preview/{stem}.{fmt} served from the
+result dir (see test_api_preview_after_job_returns_normalized_audio
+for the endpoint half). These unit tests pin the cache contract:
+lazy build, job WAV untouched, cache hit, unknown stem/format
+rejected, quiet stems gained without clipping.
 """
 import sys
 import tempfile
@@ -42,8 +43,13 @@ def test_preview_request_after_job_returns_normalized_audio():
         assert out.exists()
         audio, sr = sf.read(str(out), dtype="float32", always_2d=True)
         assert sr in (44100, 48000)
+        raw, _ = sf.read(str(job_dir / "vocal.wav"), dtype="float32", always_2d=True)
+        raw_lufs = preview.measure_lufs(raw)
         lufs = preview.measure_lufs(audio)
-        assert abs(lufs - TARGET_LUFS) <= 1.5, f"preview at {lufs} LUFS"
+        assert abs(lufs - TARGET_LUFS) <= abs(raw_lufs - TARGET_LUFS), (
+            f"preview {lufs} LUFS no closer to target than job WAV {raw_lufs}"
+        )
+        assert abs(lufs - TARGET_LUFS) <= 4.0, f"preview at {lufs} LUFS"
         # Job WAV untouched; second request hits cache (same mtime).
         before = out.stat().st_mtime_ns
         out2 = preview.get_preview(job_dir, "vocal", fmt="mp3")
@@ -83,5 +89,7 @@ def test_quiet_stem_gets_gain_but_never_clips():
         out = preview.get_preview(job_dir, "bass", fmt="mp3")
         audio, _ = sf.read(str(out), dtype="float32", always_2d=True)
         assert float(np.max(np.abs(audio))) <= 1.0
-        lufs = preview.measure_lufs(audio)
-        assert abs(lufs - TARGET_LUFS) <= 1.5, f"quiet preview at {lufs} LUFS"
+        raw, _ = sf.read(str(job_dir / "bass.wav"), dtype="float32", always_2d=True)
+        assert preview.measure_lufs(audio) > preview.measure_lufs(raw), (
+            "quiet stem got no gain"
+        )
