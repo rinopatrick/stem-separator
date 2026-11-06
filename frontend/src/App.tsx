@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { STEMS, cancelJob, stemUrl, subscribeJob, uploadJob, type JobStatus, type Stem } from "./api";
+import { STEMS, cancelJob, fetchQa, qaBadge, stemUrl, subscribeJob, uploadJob, type JobStatus, type QaDoc, type Stem } from "./api";
 
 interface StemState {
   solo: boolean;
@@ -16,6 +16,7 @@ const initialStems = (): Record<Stem, StemState> =>
 export default function App() {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [stems, setStems] = useState(initialStems);
+  const [qa, setQa] = useState<QaDoc | null>(null);
   const [playing, setPlaying] = useState<Stem | "all" | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const [drag, setDrag] = useState(false);
@@ -26,7 +27,11 @@ export default function App() {
     if (!f) return;
     const { job_id } = await uploadJob(f);
     setJob({ job_id, status: "queued", progress: 0 });
-    subscribeJob(job_id, setJob);
+    setQa(null);
+    subscribeJob(job_id, (s) => {
+      setJob(s);
+      if (s.status === "done") void fetchQa(job_id).then(setQa);
+    });
   };
 
   const togglePlay = (s: Stem | "all") => {
@@ -100,7 +105,9 @@ export default function App() {
           </div>
           {STEMS.map((s) => (
             <div className="stem-row" key={s}>
-              <span className="stem-name">{s}</span>
+              <span className="stem-name">{s}{qa && (
+                <span className={`qa-badge${qa.clips.find((c) => c.stem === s)?.flagged ? " clip" : ""}`} title={`SI-SDR estimate, ${qa.stems[s]?.runs ?? 0} runs, spread ${qa.stems[s]?.spread_db ?? 0} dB, limiter ${qa.stems[s]?.limiter ?? "none"}`}>{qaBadge(qa.stems[s], qa.clips.find((c) => c.stem === s))}</span>
+              )}</span>
               <div className="stem-btns">
                 <button disabled={!job || job.status !== "done"} onClick={() => togglePlay(s)}>
                   {playing === s ? "Stop" : "Play"}

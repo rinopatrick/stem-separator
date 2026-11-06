@@ -1,8 +1,8 @@
 """Job pipeline: mix -> 9 stems + residual.wav + sidecars.
 
-Stage-1 models fill vocal, drums, bass. other-split placeholders fill
-piano, guitar, strings from the base model's `other` bucket. synth is
-the leftover of the other-split by construction. cue and click are
+Stage-1 models fill vocal, drums, bass. `other_split` routes `other`
+through the piano/guitar/strings specialists from the registry and
+takes synth as the leftover by construction. cue and click are
 digital silence per silence-if-absent. residual carries mix minus the
 9 stems so nothing audible leaks silently.
 """
@@ -11,6 +11,8 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+import other_split
+import qa as qa_module
 import sidecars
 from config import SR
 from stemspec import STEM_NAMES
@@ -70,10 +72,11 @@ def run_job(
     drums = base_stems["drums"][:n]
     bass = base_stems["bass"][:n]
     other = base_stems["other"][:n]
-    piano = 0.5 * other
-    guitar = 0.3 * other
-    strings = 0.15 * other
-    synth = other - piano - guitar - strings
+    parts = other_split.split_other(other, sr=sr)
+    piano = parts["piano"]
+    guitar = parts["guitar"]
+    strings = parts["strings"]
+    synth = parts["synth"]
     cue = np.zeros_like(mix)
     click = np.zeros_like(mix)
 
@@ -95,4 +98,5 @@ def run_job(
     sf.write(str(out_dir / "residual.wav"), residual, sr)
     sidecars.write_manifest(out_dir, stems, sr=sr)
     sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr)
+    qa_module.write_qa(out_dir, stems, sr=sr)
     return {"stems": STEM_NAMES, "sr": sr}

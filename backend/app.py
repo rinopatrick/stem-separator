@@ -86,6 +86,16 @@ def list_jobs():
     return {"jobs": out}
 
 
+@app.get("/jobs/{job_id}/sidecars/{name}")
+def download_sidecar(job_id: str, name: str):
+    if name not in ("qa.json", "manifest.json", "tempo_map.json"):
+        raise HTTPException(404, "unknown sidecar")
+    p = config.RESULT_DIR / job_id / name
+    if not p.exists():
+        raise HTTPException(404, "sidecar not ready")
+    return FileResponse(str(p), media_type="application/json", filename=name)
+
+
 @app.get("/jobs/{job_id}/stems/{stem}")
 def download_stem(job_id: str, stem: str):
     if stem not in config.STEMS and stem != "residual":

@@ -64,7 +64,7 @@ def main():
         if not check_wav(p):
             print(f"FAIL: bad audio {p}")
             ok = False
-    for sidecar in ("manifest.json", "tempo_map.json"):
+    for sidecar in ("manifest.json", "tempo_map.json", "qa.json"):
         p = config.RESULT_DIR / "e2e_test" / sidecar
         if not p.exists():
             print(f"FAIL: missing {p}")
@@ -75,6 +75,13 @@ def main():
     manifest = json.loads((config.RESULT_DIR / "e2e_test" / "manifest.json").read_text())
     if set(manifest["stems"]) != set(expected):
         print("FAIL: manifest stems mismatch")
+        ok = False
+    qa_doc = json.loads((config.RESULT_DIR / "e2e_test" / "qa.json").read_text())
+    if set(qa_doc["stems"]) != set(expected):
+        print("FAIL: qa stems mismatch")
+        ok = False
+    if "leakage" not in qa_doc or "clips" not in qa_doc:
+        print("FAIL: qa missing leakage/clips")
         ok = False
     tempo = json.loads((config.RESULT_DIR / "e2e_test" / "tempo_map.json").read_text())
     for key in ("beats", "bpm_over_time", "confidence_global", "present"):

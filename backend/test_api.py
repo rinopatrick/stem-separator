@@ -5,6 +5,29 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 
+def test_api_serves_qa_sidecar():
+    from fastapi.testclient import TestClient
+
+    import app
+    import config
+
+    job_dir = config.RESULT_DIR / "t1_qa_probe"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    (job_dir / "qa.json").write_text('{"stems": {}}')
+    client = TestClient(app.app)
+    try:
+        r = client.get("/jobs/t1_qa_probe/sidecars/qa.json")
+        assert r.status_code == 200
+        assert r.json() == {"stems": {}}
+        r = client.get("/jobs/t1_qa_probe/sidecars/manifest.json")
+        assert r.status_code == 404
+        r = client.get("/jobs/nope/sidecars/nope.json")
+        assert r.status_code == 404
+    finally:
+        (job_dir / "qa.json").unlink(missing_ok=True)
+        job_dir.rmdir()
+
+
 def test_api_allows_nine_plus_residual():
     from fastapi.testclient import TestClient
 

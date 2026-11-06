@@ -39,6 +39,42 @@ export async function cancelJob(jobId: string): Promise<void> {
   await fetch(`${API}/jobs/${jobId}`, { method: "DELETE" });
 }
 
+export interface QaEntry {
+  sisdr_db: number;
+  spread_db: number;
+  runs: number;
+  limiter: string;
+}
+
+export interface QaClip {
+  stem: Stem;
+  peak: number;
+  flagged: boolean;
+}
+
+export interface QaDoc {
+  sr: number;
+  stems: Record<Stem, QaEntry>;
+  leakage: Record<string, number>;
+  clips: QaClip[];
+}
+
+export function qaUrl(jobId: string): string {
+  return `${API}/jobs/${jobId}/sidecars/qa.json`;
+}
+
+export async function fetchQa(jobId: string): Promise<QaDoc | null> {
+  const r = await fetch(qaUrl(jobId));
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export function qaBadge(entry: QaEntry | undefined, clip: QaClip | undefined): string {
+  if (!entry) return "n/a";
+  if (clip?.flagged) return `clip ${entry.sisdr_db.toFixed(1)} dB`;
+  return `${entry.sisdr_db.toFixed(1)} dB`;
+}
+
 export async function listJobs(): Promise<{ jobs: JobStatus[] }> {
   const r = await fetch(`${API}/jobs`);
   return r.json();
