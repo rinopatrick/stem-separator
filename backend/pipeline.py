@@ -2,10 +2,12 @@
 
 Stage-1 models fill vocal, drums, bass. `other_split` routes `other`
 through the piano/guitar/strings specialists from the registry and
-takes synth as the leftover by construction. cue and click are
-digital silence per silence-if-absent. residual carries mix minus the
-9 stems so nothing audible leaks silently.
+takes synth as the leftover by construction. cue is extracted from
+the vocal stem, click resynthesized from beat timestamps; each falls
+back to digital silence per silence-if-absent. residual carries mix
+minus the 9 stems so nothing audible leaks silently.
 """
+
 from pathlib import Path
 
 import json
@@ -14,6 +16,7 @@ import soundfile as sf
 
 import autotune
 import click_tracker as click_module
+import cue as cue_module
 import other_split
 import qa as qa_module
 import sidecars
@@ -79,8 +82,11 @@ def run_job(
         mix = np.tile(mix[:, :1], (1, ch)) if mix.shape[1] == 1 else mix[:, :ch]
 
     vocal, vocal_info = vocal_module.separate_vocal(
-        mix, sr, base_stems["vocals"][:n],
-        use_upgrade=use_vocal_upgrade, force_oom=force_oom,
+        mix,
+        sr,
+        base_stems["vocals"][:n],
+        use_upgrade=use_vocal_upgrade,
+        force_oom=force_oom,
     )
     drums = base_stems["drums"][:n]
     bass = base_stems["bass"][:n]
@@ -90,14 +96,32 @@ def run_job(
     guitar = parts["guitar"]
     strings = parts["strings"]
     synth = parts["synth"]
-    cue = np.zeros_like(mix)
+    extracted = cue_module.extract_cue(np.asarray(vocal), sr=sr)
+    cue = np.asarray(extracted["cue"], dtype=np.float32)
+    if cue.shape != mix.shape:
+        cue = np.zeros_like(mix)
+    cue_info = {
+        k: extracted[k]
+        for k in ("segments", "confidence", "present", "reason")
+        if k in extracted
+    }
     tracked = click_module.track_click(np.asarray(mix), sr=sr)
     click = np.asarray(tracked["click"], dtype=np.float32)
     if click.shape != mix.shape:
         click = np.zeros_like(mix)
-    click_info = {k: tracked[k] for k in (
-        "beats", "downbeats", "bpm_over_time", "meter",
-        "confidence_global", "present", "reason") if k in tracked}
+    click_info = {
+        k: tracked[k]
+        for k in (
+            "beats",
+            "downbeats",
+            "bpm_over_time",
+            "meter",
+            "confidence_global",
+            "present",
+            "reason",
+        )
+        if k in tracked
+    }
 
     stems: dict[str, np.ndarray] = {
         "vocal": vocal,
@@ -112,7 +136,9 @@ def run_job(
     }
     for name in STEM_NAMES:
         sf.write(str(out_dir / f"{name}.wav"), stems[name], sr)
-    total = sum(stems[name] for name in STEM_NAMES)
+    # cue is a subset of vocal, not an independent stem: exclude it so
+    # residual stays mix minus the disjoint stem set.
+    total = sum(stems[name] for name in STEM_NAMES if name != "cue")
     residual = mix - total
     sf.write(str(out_dir / "residual.wav"), residual, sr)
     plan = autotune.probe(
@@ -121,19 +147,23 @@ def run_job(
     )
     active = plan[vocal_info["model_id"]]
     sidecars.write_manifest(
-        out_dir, stems, sr=sr,
+        out_dir,
+        stems,
+        sr=sr,
         model=vocal_info["model_id"],
         tile=active["tile"],
         autotune=plan,
         click_info=click_info,
+        cue_info=cue_info,
     )
-    sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr,
-                               click_info=click_info)
+    sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr, click_info=click_info)
     qa_module.write_qa(out_dir, stems, sr=sr, runs=1, spread_db=0.0, limiter="none")
-    (out_dir / "ab_vocal.json").write_text(json.dumps(
-        vocal_ab_doc(base_stems, sr=sr,
-                     src=src if base_stems is None else None),
-        indent=2))
+    (out_dir / "ab_vocal.json").write_text(
+        json.dumps(
+            vocal_ab_doc(base_stems, sr=sr, src=src if base_stems is None else None),
+            indent=2,
+        )
+    )
     n_mix = mix.shape[0]
     n_stem = min(np.asarray(stems[name]).shape[0] for name in STEM_NAMES)
     assert n_stem == n_mix, f"stem/mix length mismatch {n_stem} != {n_mix}"
@@ -169,13 +199,17 @@ def vocal_ab_doc(
     variants = {
         "base": np.asarray(base_stems["vocals"][:n], dtype=np.float32),
         "upgraded": np.asarray(
-            vocal_module.separate_vocal(mix, sr, base_stems["vocals"][:n],
-                                          use_upgrade=True)[0], dtype=np.float32),
+            vocal_module.separate_vocal(
+                mix, sr, base_stems["vocals"][:n], use_upgrade=True
+            )[0],
+            dtype=np.float32,
+        ),
     }
     return {
         "clip": clip,
         "sr": sr,
-        "stems": qa_module.score_stems(variants, runs=runs,
-                                         spread_db=spread_db, limiter=limiter),
+        "stems": qa_module.score_stems(
+            variants, runs=runs, spread_db=spread_db, limiter=limiter
+        ),
         "clips": qa_module.score_clips(variants),
     }

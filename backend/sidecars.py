@@ -5,6 +5,7 @@ manifest carries per-stem file, present, confidence, source, reason
 plus model and tile choices. tempo_map is the librosa-fallback shape:
 beats only, downbeats null, silence-if-absent for optional stems.
 """
+
 import hashlib
 import json
 from pathlib import Path
@@ -22,6 +23,7 @@ def write_manifest(
     tile: int = 343980,
     autotune: dict | None = None,
     click_info: dict | None = None,
+    cue_info: dict | None = None,
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     doc: dict = {"model": model, "tile": tile, "sr": sr, "stems": {}}
@@ -33,6 +35,10 @@ def write_manifest(
             present = bool(click_info.get("present", False))
             confidence = float(click_info.get("confidence_global", 0.0))
             reason = str(click_info.get("reason", ""))
+        elif name == "cue" and cue_info is not None:
+            present = bool(cue_info.get("present", False))
+            confidence = float(cue_info.get("confidence", 0.0))
+            reason = str(cue_info.get("reason", ""))
         elif spec.optional:
             present = False
             confidence = 0.0
@@ -49,6 +55,8 @@ def write_manifest(
             "reason": reason,
             "sha256_16": h,
         }
+        if name == "cue":
+            doc["stems"][name]["segments"] = list((cue_info or {}).get("segments", []))
     p = out_dir / "manifest.json"
     if autotune is not None:
         doc["autotune"] = autotune
@@ -74,8 +82,8 @@ def write_tempo_map(
         "confidence": info.get("confidence_global", 0.0),
         "present": info.get("present", False),
         "reason": info.get(
-            "reason",
-            "librosa-fallback placeholder: beat tracker lands in T4"),
+            "reason", "librosa-fallback placeholder: beat tracker lands in T4"
+        ),
         "duration_s": duration,
     }
     p = out_dir / "tempo_map.json"
