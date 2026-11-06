@@ -98,3 +98,31 @@ def test_api_serves_all_ten_files():
         for name in names:
             (job_dir / f"{name}.wav").unlink(missing_ok=True)
         job_dir.rmdir()
+
+def test_api_preview_after_job_returns_normalized_audio():
+    import numpy as np
+    import soundfile as sf
+    from fastapi.testclient import TestClient
+
+    import app
+    import config
+
+    sr = 44100
+    job_dir = config.RESULT_DIR / "t6_preview_probe"
+    job_dir.mkdir(parents=True, exist_ok=True)
+    tone = (0.5 * np.sin(2 * np.pi * 440 * np.arange(sr * 2) / sr)).astype(np.float32)
+    sf.write(str(job_dir / "vocal.wav"), np.stack([tone, tone], axis=1), sr)
+    client = TestClient(app.app)
+    try:
+        assert list(job_dir.glob("preview-*")) == []
+        r = client.get("/jobs/t6_preview_probe/preview/vocal.opus")
+        assert r.status_code == 200, r.text[:200]
+        assert (job_dir / "preview-vocal.opus").exists()
+        r = client.get("/jobs/t6_preview_probe/preview/banjo.opus")
+        assert r.status_code == 404
+        r = client.get("/jobs/t6_preview_probe/preview/vocal.flac")
+        assert r.status_code == 404
+    finally:
+        for p in job_dir.glob("*"):
+            p.unlink()
+        job_dir.rmdir()

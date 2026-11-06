@@ -35,6 +35,12 @@ export function stemUrl(jobId: string, stem: DownloadStem): string {
   return `${API}/jobs/${jobId}/stems/${stem}`;
 }
 
+export type PreviewFormat = "opus" | "mp3";
+
+export function previewUrl(jobId: string, stem: DownloadStem, fmt: PreviewFormat = "opus"): string {
+  return `${API}/jobs/${jobId}/preview/${stem}.${fmt}`;
+}
+
 export async function cancelJob(jobId: string): Promise<void> {
   await fetch(`${API}/jobs/${jobId}`, { method: "DELETE" });
 }

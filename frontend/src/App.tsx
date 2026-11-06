@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { STEMS, cancelJob, fetchManifest, fetchQa, fetchTempo, qaBadge, stemUrl, subscribeJob, tempoReadout, uploadJob, type JobStatus, type ManifestDoc, type QaDoc, type Stem, type TempoDoc } from "./api";
+import { STEMS, cancelJob, fetchManifest, fetchQa, fetchTempo, previewUrl, qaBadge, stemUrl, subscribeJob, tempoReadout, uploadJob, type JobStatus, type ManifestDoc, type QaDoc, type Stem, type TempoDoc } from "./api";
 
 interface StemState {
   solo: boolean;
@@ -133,7 +133,8 @@ export default function App() {
                 {job && job.status === "done" ? (
                   <>
                     <a href={stemUrl(job.job_id, s)} download={`${s}.wav`}>WAV</a>
-                    <audio ref={(el) => { audioRefs.current[s] = el; }} src={stemUrl(job.job_id, s)} preload="none" />
+                    <a href={previewUrl(job.job_id, s, "mp3")}>Preview</a>
+                    <audio ref={(el) => { audioRefs.current[s] = el; }} src={previewUrl(job.job_id, s)} preload="none" />
                   </>
                 ) : <span className="na">—</span>}
               </div>
