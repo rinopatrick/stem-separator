@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="oklch(17% 0.008 240)">
+  <title>Stem Separator — Audio workspace</title>
+  <style>
+    :root {
+      --bg: oklch(17% 0.008 240);
+      --surface: oklch(20% 0.009 240);
+      --surface-raised: oklch(23% 0.01 240);
+      --surface-inset: oklch(15% 0.008 240);
+      --fg: oklch(93% 0.008 240);
+      --muted: oklch(67% 0.014 240);
+      --subtle: oklch(52% 0.014 240);
+      --border: oklch(31% 0.012 240);
+      --accent: oklch(75% 0.16 145);
+      --accent-ink: oklch(20% 0.05 145);
+      --good: oklch(73% 0.13 145);
+      --warn: oklch(78% 0.13 78);
+      --danger: oklch(69% 0.16 25);
+      --font-display: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-body: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', system-ui, sans-serif;
+      --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, Menlo, monospace;
+      color-scheme: dark;
+      font-synthesis: none;
+      text-rendering: optimizeLegibility;
+      font-kerning: normal;
+      font-variant-numeric: tabular-nums;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-width: 360px;
+      min-height: 100vh;
+      color: var(--fg);
+      background: var(--bg);
+      font-family: var(--font-body);
+      font-size: 13px;
+      line-height: 1.45;
+    }
+    button, input { font: inherit; }
+    button { color: inherit; }
+    button:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 3px;
+    }
+    .topbar {
+      height: 62px;
+      border-bottom: 1px solid var(--border);
+      background: oklch(18% 0.008 240);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 clamp(18px, 4vw, 58px);
+    }
+    .brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+    .brand-mark {
+      width: 28px; height: 28px; display: grid; place-items: center;
+      border: 1px solid oklch(42% 0.08 145); border-radius: 7px;
+      color: var(--accent); background: oklch(23% 0.035 145);
+    }
+    .brand-mark svg { width: 16px; height: 16px; }
+    .brand-name { font-weight: 650; letter-spacing: -.025em; font-size: 14px; white-space: nowrap; }
+    .brand-divider { height: 18px; width: 1px; background: var(--border); margin: 0 2px; }
+    .workspace-name { color: var(--muted); font-size: 12px; white-space: nowrap; }
+    .header-right { display: flex; align-items: center; gap: 18px; }
+    .engine-label { color: var(--subtle); font-family: var(--font-mono); font-size: 10px; letter-spacing: .04em; }
+    .job-state { display: inline-flex; align-items: center; gap: 8px; color: var(--muted); font-size: 11px; }
+    .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--good); box-shadow: 0 0 0 3px oklch(30% .06 145); }
+    .status-dot.is-working { background: var(--warn); box-shadow: 0 0 0 3px oklch(30% .055 78); animation: pulse 1s ease-in-out infinite alternate; }
+    @keyframes pulse { to { opacity: .45; } }
+    main { max-width: 1240px; margin: 0 auto; padding: 29px clamp(18px, 4vw, 44px) 46px; }
+    .page-heading { display: flex; justify-content: space-between; align-items: end; gap: 18px; margin-bottom: 21px; }
+    .eyebrow { color: var(--subtle); font: 10px/1.4 var(--font-mono); letter-spacing: .085em; text-transform: uppercase; margin: 0 0 7px; }
+    h1 { margin: 0; font-size: clamp(21px, 2vw, 27px); letter-spacing: -.04em; line-height: 1.12; font-weight: 640; }
+    .intro { margin: 7px 0 0; color: var(--muted); font-size: 12px; }
+    .demo-tag { border: 1px solid var(--border); border-radius: 5px; color: var(--muted); padding: 5px 8px; font: 9px var(--font-mono); letter-spacing: .05em; white-space: nowrap; }
+    .top-grid { display: grid; grid-template-columns: minmax(0, 1.27fr) minmax(260px, .73fr); gap: 14px; margin-bottom: 14px; }
+    .panel { border: 1px solid var(--border); background: var(--surface); border-radius: 8px; }
+    .panel-head { min-height: 42px; padding: 0 15px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid var(--border); }
+    .panel-title { margin: 0; color: var(--fg); font-size: 11px; font-weight: 620; letter-spacing: .005em; }
+    .panel-meta { color: var(--subtle); font: 9px var(--font-mono); }
+    .upload-panel { min-height: 186px; }
+    .dropzone {
+      margin: 12px; min-height: 116px; border: 1px dashed oklch(40% .012 240); border-radius: 6px;
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      background: var(--surface-inset); transition: border-color .16s, background .16s;
+      cursor: pointer; padding: 15px;
+    }
+    .dropzone:hover, .dropzone.is-dragging { border-color: var(--accent); background: oklch(19% .018 145); }
+    .dropzone-content { display: grid; justify-items: center; }
+    .upload-icon { color: var(--muted); margin-bottom: 7px; }
+    .upload-icon svg { display: block; width: 20px; height: 20px; }
+    .drop-title { font-size: 12px; font-weight: 570; }
+    .drop-sub { color: var(--muted); margin-top: 2px; font-size: 10px; }
+    .drop-sub strong { color: var(--fg); font-weight: 550; text-decoration: underline; text-decoration-color: var(--subtle); text-underline-offset: 2px; }
+    .support-line { display: flex; justify-content: space-between; gap: 12px; padding: 0 14px 10px; color: var(--subtle); font: 9px var(--font-mono); }
+    .track-panel { min-height: 186px; }
+    .track-content { padding: 13px 15px 12px; }
+    .track-file { display: flex; align-items: center; gap: 11px; min-width: 0; }
+    .file-icon { flex: 0 0 32px; width: 32px; height: 36px; display: grid; place-items: center; border: 1px solid var(--border); border-radius: 5px; color: var(--muted); background: var(--surface-inset); }
+    .file-icon svg { width: 16px; height: 16px; }
+    .track-info { min-width: 0; flex: 1; }
+    .track-name { font-size: 12px; font-weight: 590; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .track-detail { margin-top: 3px; color: var(--muted); font: 9px var(--font-mono); }
+    .track-change { border: 0; padding: 5px; background: none; color: var(--muted); cursor: pointer; font-size: 10px; text-decoration: underline; text-underline-offset: 3px; }
+    .track-change:hover { color: var(--fg); }
+    .track-empty { min-height: 89px; display: grid; place-items: center; color: var(--subtle); text-align: center; font-size: 11px; }
+    .track-stats { display: grid; grid-template-columns: repeat(3,1fr); border-top: 1px solid var(--border); margin-top: 12px; padding-top: 11px; }
+    .stat + .stat { border-left: 1px solid var(--border); padding-left: 13px; }
+    .stat-label { color: var(--subtle); font: 9px var(--font-mono); text-transform: uppercase; letter-spacing: .045em; }
+    .stat-value { color: var(--fg); margin-top: 3px; font-size: 11px; font-weight: 560; }
+    .processing-panel { margin-bottom: 14px; }
+    .processing-head { min-height: 43px; }
+    .processing-label { display: flex; align-items: center; gap: 8px; }
+    .processing-label .mini-mark { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+    .processing-overall { display: flex; align-items: center; gap: 10px; color: var(--muted); font: 9px var(--font-mono); }
+    .overall-track { width: 90px; height: 3px; background: var(--surface-inset); border-radius: 9px; overflow: hidden; }
+    .overall-fill { width: 0%; height: 100%; background: var(--accent); transition: width .35s; }
+    .processing-grid { display: grid; grid-template-columns: repeat(6,minmax(0,1fr)); padding: 11px 14px 13px; gap: 12px; }
+    .process-item { min-width: 0; }
+    .process-top { display: flex; justify-content: space-between; gap: 5px; font-size: 10px; margin-bottom: 6px; }
+    .process-name { color: var(--muted); }
+    .process-pct { color: var(--subtle); font: 9px var(--font-mono); }
+    .process-track { height: 3px; background: var(--surface-inset); border-radius: 8px; overflow: hidden; }
+    .process-fill { width: 0; height: 100%; background: var(--accent); transition: width .35s; }
+    .processing-note { padding: 0 15px 11px; color: var(--subtle); font-size: 10px; }
+    .results-panel { overflow: hidden; }
+    .results-head { min-height: 47px; }
+    .results-title-wrap { display: flex; align-items: baseline; gap: 9px; }
+    .count-pill { color: var(--muted); background: var(--surface-raised); border: 1px solid var(--border); border-radius: 4px; padding: 2px 6px; font: 9px var(--font-mono); }
+    .results-tools { display: flex; align-items: center; gap: 12px; }
+    .time-total { color: var(--subtle); font: 9px var(--font-mono); }
+    .ghost-btn, .small-btn, .primary-btn, .icon-btn, .tool-btn {
+      min-height: 34px; display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+      border-radius: 5px; border: 1px solid var(--border); background: var(--surface-raised); cursor: pointer;
+      transition: background .14s, border-color .14s, transform .14s;
+    }
+    .ghost-btn { padding: 0 10px; color: var(--fg); font-size: 10px; font-weight: 550; }
+    .ghost-btn:hover, .small-btn:hover, .icon-btn:hover, .tool-btn:hover { background: oklch(29% .012 240); border-color: oklch(43% .014 240); }
+    .primary-btn { min-height: 35px; border-color: var(--accent); padding: 0 12px; color: var(--accent-ink); background: var(--accent); font-size: 10px; font-weight: 650; }
+    .primary-btn:hover { background: oklch(68% .16 145); border-color: oklch(68% .16 145); }
+    .primary-btn:active, .ghost-btn:active, .small-btn:active, .icon-btn:active { transform: translateY(1px); }
+    .results-subline { display: flex; justify-content: space-between; padding: 9px 15px; border-bottom: 1px solid var(--border); color: var(--subtle); font: 9px var(--font-mono); }
+    .stem-row { min-height: 61px; display: grid; grid-template-columns: 134px minmax(140px,1fr) 88px 176px 176px; align-items: center; gap: 12px; padding: 8px 15px; border-bottom: 1px solid var(--border); }
+    .stem-row:last-child { border-bottom: 0; }
+    .stem-label { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    .stem-color { width: 7px; height: 7px; border-radius: 2px; flex: 0 0 auto; background: var(--stem-color); }
+    .stem-name { font-size: 11px; font-weight: 570; }
+    .stem-kind { color: var(--subtle); margin-top: 1px; font-size: 9px; }
+    .waveform {
+      height: 27px; width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 2px;
+      position: relative; overflow: hidden; padding: 0 2px;
+    }
+    .waveform::before { content: ''; position: absolute; left: 0; right: 0; top: 50%; height: 1px; background: oklch(31% .012 240); }
+    .wave-bar { z-index: 1; width: 2px; flex: 1 1 2px; max-width: 4px; height: var(--h); min-height: 2px; border-radius: 2px; background: color-mix(in oklch, var(--stem-color) 67%, oklch(50% .01 240)); opacity: .66; }
+    .wave-bar.is-played { background: var(--stem-color); opacity: 1; }
+    .stem-actions { display: flex; justify-content: center; gap: 5px; }
+    .icon-btn { width: 32px; min-width: 32px; min-height: 30px; color: var(--muted); padding: 0; }
+    .icon-btn svg { width: 13px; height: 13px; }
+    .icon-btn.is-active { color: var(--accent); background: oklch(26% .035 145); border-color: oklch(43% .07 145); }
+    .icon-btn.is-playing { color: var(--fg); border-color: oklch(45% .015 240); }
+    .volume-control { display: flex; align-items: center; justify-content: center; gap: 8px; color: var(--subtle); }
+    .volume-control svg { flex: 0 0 auto; width: 13px; height: 13px; }
+    input[type="range"] { appearance: none; -webkit-appearance: none; height: 3px; width: 104px; border-radius: 4px; background: linear-gradient(to right, var(--stem-color) 76%, oklch(35% .01 240) 76%); cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 10px; height: 10px; border-radius: 50%; background: var(--fg); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--stem-color); }
+    input[type="range"]::-moz-range-thumb { width: 8px; height: 8px; border-radius: 50%; background: var(--fg); border: 2px solid var(--surface); box-shadow: 0 0 0 1px var(--stem-color); }
+    .volume-value { width: 24px; color: var(--subtle); font: 9px var(--font-mono); text-align: right; }
+    .exports { display: flex; justify-content: end; gap: 5px; }
+    .small-btn { min-height: 29px; padding: 0 7px; color: var(--muted); font: 9px var(--font-mono); }
+    .small-btn svg { width: 12px; height: 12px; }
+    .small-btn:hover { color: var(--fg); }
+    .footer-grid { display: grid; grid-template-columns: minmax(250px, .72fr) minmax(0, 1.28fr); gap: 14px; margin-top: 14px; }
+    .download-panel { padding: 14px; display: flex; align-items: center; justify-content: space-between; gap: 15px; }
+    .download-copy { min-width: 0; }
+    .download-heading { font-size: 11px; font-weight: 590; }
+    .download-desc { margin-top: 3px; color: var(--muted); font-size: 10px; }
+    .zip-btn { flex: 0 0 auto; }
+    .history-panel { overflow: hidden; }
+    .history-head { min-height: 41px; }
+    .history-list { padding: 0 12px; }
+    .history-row { display: grid; grid-template-columns: minmax(0,1fr) 112px 75px 50px; align-items: center; gap: 8px; min-height: 38px; border-bottom: 1px solid var(--border); }
+    .history-row:last-child { border: 0; }
+    .history-file { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--fg); font-size: 10px; }
+    .history-date { color: var(--subtle); font: 9px var(--font-mono); }
+    .history-status { color: var(--good); font: 9px var(--font-mono); }
+    .history-status.processing { color: var(--warn); }
+    .history-open { border: 0; padding: 4px 0; color: var(--muted); background: none; text-align: right; text-decoration: underline; text-decoration-color: var(--subtle); text-underline-offset: 3px; cursor: pointer; font-size: 9px; }
+    .history-open:hover { color: var(--fg); }
+    .history-empty { padding: 14px 2px; color: var(--subtle); font-size: 10px; }
+    .toast { position: fixed; left: 50%; bottom: 22px; transform: translate(-50%, 12px); border: 1px solid oklch(43% .014 240); border-radius: 6px; background: oklch(25% .012 240); padding: 9px 13px; color: var(--fg); font-size: 11px; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 8px 28px oklch(0% 0 0 / .32); z-index: 5; }
+    .toast.is-visible { opacity: 1; transform: translate(-50%, 0); }
+    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+    @media (max-width: 960px) {
+      main { padding-top: 23px; }
+      .stem-row { grid-template-columns: 104px minmax(100px,1fr) 76px 132px 132px; gap: 8px; padding-inline: 11px; }
+      .icon-btn { width: 29px; min-width: 29px; }
+      input[type="range"] { width: 75px; }
+      .small-btn { padding-inline: 6px; }
+    }
+    @media (max-width: 760px) {
+      .topbar { padding-inline: 16px; }
+      .engine-label { display: none; }
+      main { padding-inline: 16px; }
+      .top-grid, .footer-grid { grid-template-columns: 1fr; }
+      .track-panel { min-height: 0; }
+      .processing-grid { grid-template-columns: repeat(3,minmax(0,1fr)); row-gap: 13px; }
+      .stem-row { grid-template-columns: 100px minmax(75px,1fr) 70px 112px; }
+      .volume-control { display: none; }
+    }
+    @media (max-width: 540px) {
+      .brand-divider, .workspace-name, .demo-tag, .time-total { display: none; }
+      .page-heading { align-items: start; }
+      h1 { font-size: 23px; }
+      .processing-head { flex-wrap: wrap; gap: 7px; padding: 8px 10px; }
+      .processing-overall { width: 100%; justify-content: space-between; }
+      .stem-row { grid-template-columns: minmax(90px, .72fr) minmax(72px,1fr) 66px; gap: 7px; padding: 9px 10px; }
+      .stem-row .volume-control { display: none; }
+      .exports { grid-column: 2 / 4; justify-content: end; margin-top: -3px; }
+      .stem-row { min-height: 70px; }
+      .icon-btn { width: 29px; min-width: 29px; }
+      .results-subline { font-size: 8px; }
+      .results-head { padding-inline: 10px; }
+      .results-tools { gap: 6px; }
+      .ghost-btn { padding-inline: 7px; }
+      .history-row { grid-template-columns: minmax(0,1fr) 67px 42px; gap: 6px; }
+      .history-date { display: none; }
+      .history-row .history-open { grid-column: 3; }
+      .history-status { grid-column: 2; grid-row: 1; }
+      .download-panel { align-items: flex-start; flex-direction: column; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  </style>
+</head>
+<body>
+  <header class="topbar" data-od-id="app-header">
+    <div class="brand">
+      <div class="brand-mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M4 9v6M8 5v14M12 8v8M16 4v16M20 9v6"/></svg></div>
+      <span class="brand-name">Stem Separator</span>
+      <span class="brand-divider" aria-hidden="true"></span>
+      <span class="workspace-name">Audio workspace</span>
+    </div>
+    <div class="header-right">
+      <span class="engine-label">6-STEM ENGINE <span style="color:var(--border)">/</span> WAV · MP3</span>
+      <span class="job-state"><span class="status-dot" id="statusDot"></span><span id="jobStatus">Ready</span></span>
+    </div>
+  </header>
+  <main>
+    <div class="page-heading" data-od-id="workspace-heading">
+      <div><p class="eyebrow">Workspace <span style="color:var(--border)">/</span> Separation</p><h1>Separate your mix</h1><p class="intro">Split a track into six editable stems, then audition and export each layer.</p></div>
+      <span class="demo-tag">INTERACTIVE DEMO</span>
+    </div>
+
+    <section class="top-grid" aria-label="Upload and source track">
+      <div class="panel upload-panel" data-od-id="upload-panel">
+        <div class="panel-head"><h2 class="panel-title">Source audio</h2><span class="panel-meta">STEP 01 <span style="color:var(--border)">/</span> UPLOAD</span></div>
+        <label class="dropzone" id="dropzone" for="audioInput" data-od-id="audio-dropzone">
+          <input class="sr-only" type="file" id="audioInput" accept="audio/*,.wav,.mp3,.flac,.aiff,.m4a">
+          <span class="dropzone-content" id="dropContent">
+            <span class="upload-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L7.5 8.5M12 4l4.5 4.5M4 15v4a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4"/></svg></span>
+            <span class="drop-title">Drop an audio file to get started</span>
+            <span class="drop-sub">or <strong>browse files</strong> from your device</span>
+          </span>
+        </label>
+        <div class="support-line"><span>WAV · MP3 · FLAC · AIFF · M4A</span><span>UP TO 100 MB</span></div>
+      </div>
+      <div class="panel track-panel" data-od-id="track-panel">
+        <div class="panel-head"><h2 class="panel-title">Track details</h2><span class="panel-meta" id="trackBadge">NO FILE</span></div>
+        <div class="track-content" id="trackContent">
+          <div class="track-empty">Your source track details will appear here.</div>
+          <div class="track-stats">
+            <div class="stat"><div class="stat-label">Duration</div><div class="stat-value" id="trackDuration">—</div></div>
+            <div class="stat"><div class="stat-label">Format</div><div class="stat-value" id="trackFormat">—</div></div>
+            <div class="stat"><div class="stat-label">Stems</div><div class="stat-value">6 layers</div></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel processing-panel" aria-labelledby="processingTitle" data-od-id="processing-panel">
+      <div class="panel-head processing-head">
+        <div class="processing-label"><span class="mini-mark"></span><h2 class="panel-title" id="processingTitle">Separation progress</h2></div>
+        <div class="processing-overall"><button class="ghost-btn" id="processBtn" type="button" data-od-id="start-separation">Start separation</button><span id="overallText">Ready when you are</span><span class="overall-track"><span class="overall-fill" id="overallFill"></span></span></div>
+      </div>
+      <div class="processing-grid" id="processingGrid"></div>
+      <div class="processing-note" id="processingNote">Upload a track to begin. Processing is simulated in this interactive demo.</div>
+    </section>
+
+    <section class="panel results-panel" aria-labelledby="resultsTitle" data-od-id="stem-results">
+      <div class="panel-head results-head">
+        <div class="results-title-wrap"><h2 class="panel-title" id="resultsTitle">Separated stems</h2><span class="count-pill">06</span></div>
+        <div class="results-tools"><span class="time-total" id="resultsDuration">—:— TOTAL</span><button class="ghost-btn" id="playAllBtn" type="button" data-od-id="play-all"><svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.5a.7.7 0 0 1 1.06-.6l7 4.5a.7.7 0 0 1 0 1.2l-7 4.5A.7.7 0 0 1 5 12.5z"/></svg>Play all</button></div>
+      </div>
+      <div class="results-subline"><span>STEM LAYER <span style="color:var(--border)">·</span> PREVIEW IS SIMULATED</span><span>EXPORT FORMAT</span></div>
+      <div id="stemRows"></div>
+    </section>
+
+    <section class="footer-grid" aria-label="Exports and recent jobs">
+      <div class="panel download-panel" data-od-id="download-all-panel">
+        <div class="download-copy"><div class="download-heading">Export all stems</div><div class="download-desc">Bundle the six layers into one archive.</div></div>
+        <button class="primary-btn zip-btn" id="downloadAll" type="button" data-od-id="download-all"><svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7M3 11v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2"/></svg>Download ZIP</button>
+      </div>
+      <div class="panel history-panel" data-od-id="job-history">
+        <div class="panel-head history-head"><h2 class="panel-title">Recent jobs</h2><span class="panel-meta" id="historyCount">0 JOBS</span></div>
+        <div class="history-list" id="historyList"><div class="history-empty">Completed sessions will be listed here.</div></div>
+      </div>
+    </section>
+  </main>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script>
+    (() => {
+      const stems = [
+        { id: 'vocals', name: 'Vocals', kind: 'CENTER · VOICE', color: 'oklch(75% .12 205)' },
+        { id: 'drums', name: 'Drums', kind: 'PERCUSSION', color: 'oklch(75% .14 78)' },
+        { id: 'bass', name: 'Bass', kind: 'LOW FREQUENCY', color: 'oklch(73% .13 145)' },
+        { id: 'piano', name: 'Piano', kind: 'KEYS', color: 'oklch(74% .12 300)' },
+        { id: 'guitar', name: 'Guitar', kind: 'STRINGS', color: 'oklch(75% .13 30)' },
+        { id: 'other', name: 'Other', kind: 'REMAINDER', color: 'oklch(75% .11 255)' }
+      ];
+      const state = { file: null, processing: false, ready: false, played: new Set(), muted: new Set(), solo: null, volumes: Object.fromEntries(stems.map(s => [s.id, 76])), history: [] };
+      const $ = id => document.getElementById(id);
+      const icon = (name) => ({
+        play: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M5 3.5a.7.7 0 0 1 1.06-.6l7 4.5a.7.7 0 0 1 0 1.2l-7 4.5A.7.7 0 0 1 5 12.5z"/></svg>',
+        pause: '<svg viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M4 3.5a.8.8 0 0 1 .8-.8h1.1a.8.8 0 0 1 .8.8v9a.8.8 0 0 1-.8.8H4.8a.8.8 0 0 1-.8-.8zm5.3 0a.8.8 0 0 1 .8-.8h1.1a.8.8 0 0 1 .8.8v9a.8.8 0 0 1-.8.8h-1.1a.8.8 0 0 1-.8-.8z"/></svg>',
+        volume: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 6v4h2.6L8.5 13V3L5.1 6zM10.5 5.5a3.4 3.4 0 0 1 0 5m1.5-7a5.7 5.7 0 0 1 0 9"/></svg>',
+        download: '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 2v8m0 0 3-3m-3 3L5 7M3 11v2a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1v-2"/></svg>'
+      })[name];
+      const esc = value => String(value).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+      const waveBars = (seed, played = false) => Array.from({ length: 66 }, (_, i) => {
+        const n = Math.abs(Math.sin((i + 3) * (seed * .73 + .49)) * Math.cos((i + seed) * .31));
+        const h = Math.round(3 + n * 22);
+        return `<i class="wave-bar${played && i < 16 ? ' is-played' : ''}" style="--h:${h}px"></i>`;
+      }).join('');
+      function drawStems() {
+        $('stemRows').innerHTML = stems.map((stem, i) => `
+          <div class="stem-row" data-stem="${stem.id}" data-od-id="stem-${stem.id}" style="--stem-color:${stem.color}">
+            <div class="stem-label"><span class="stem-color"></span><div><div class="stem-name">${stem.name}</div><div class="stem-kind">${stem.kind}</div></div></div>
+            <div class="waveform" aria-label="${stem.name} waveform preview">${waveBars(i + 1)}</div>
+            <div class="stem-actions">
+              <button class="icon-btn play-stem" type="button" aria-label="Play ${stem.name}" title="Play preview" data-od-id="play-${stem.id}">${icon('play')}</button>
+              <button class="icon-btn solo-stem" type="button" aria-label="Solo ${stem.name}" title="Solo" data-od-id="solo-${stem.id}"><span style="font:9px var(--font-mono)">S</span></button>
+              <button class="icon-btn mute-stem" type="button" aria-label="Mute ${stem.name}" title="Mute" data-od-id="mute-${stem.id}"><span style="font:9px var(--font-mono)">M</span></button>
+            </div>
+            <label class="volume-control"><span class="sr-only">${stem.name} volume</span>${icon('volume')}<input type="range" min="0" max="100" value="76" aria-label="${stem.name} volume" data-volume="${stem.id}"><span class="volume-value">76</span></label>
+            <div class="exports"><button class="small-btn export-stem" type="button" data-format="WAV" data-stem-name="${stem.name}" data-od-id="${stem.id}-wav">${icon('download')}WAV</button><button class="small-btn export-stem" type="button" data-format="MP3" data-stem-name="${stem.name}" data-od-id="${stem.id}-mp3">MP3</button></div>
+          </div>`).join('');
+      }
+      function drawProgress() {
+        $('processingGrid').innerHTML = stems.map(s => `<div class="process-item"><div class="process-top"><span class="process-name">${s.name}</span><span class="process-pct" id="pct-${s.id}">—</span></div><div class="process-track"><div class="process-fill" id="fill-${s.id}"></div></div></div>`).join('');
+      }
+      function toast(message) {
+        const el = $('toast'); el.textContent = message; el.classList.add('is-visible');
+        clearTimeout(toast.timer); toast.timer = setTimeout(() => el.classList.remove('is-visible'), 2600);
+      }
+      function formatBytes(bytes) {
+        if (!bytes) return '—';
+        const units = ['B','KB','MB','GB']; let size = bytes, i = 0;
+        while (size >= 1024 && i < units.length - 1) { size /= 1024; i++; }
+        return `${size.toFixed(i ? 1 : 0)} ${units[i]}`;
+      }
+      function setFile(file) {
+        if (!file) return;
+        const allowed = /\.(wav|mp3|flac|aiff|aif|m4a|ogg)$/i.test(file.name) || file.type.startsWith('audio/');
+        if (!allowed) { toast('Choose a supported audio file.'); return; }
+        if (file.size > 100 * 1024 * 1024) { toast('This file exceeds the 100 MB demo limit.'); return; }
+        state.file = file; state.ready = false; state.processing = false;
+        $('trackBadge').textContent = 'SOURCE LOADED';
+        $('trackContent').innerHTML = `<div class="track-file"><span class="file-icon" aria-hidden="true"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><path d="M5 2.5h6l4 4v11H5z"/><path d="M11 2.5v4h4M8 11h4m-4 3h5"/></svg></span><div class="track-info"><div class="track-name" title="${esc(file.name)}">${esc(file.name)}</div><div class="track-detail">${formatBytes(file.size)} · LOCAL FILE</div></div><button class="track-change" id="changeFile" type="button">Replace</button></div><div class="track-stats"><div class="stat"><div class="stat-label">Duration</div><div class="stat-value" id="trackDuration">Reading…</div></div><div class="stat"><div class="stat-label">Format</div><div class="stat-value" id="trackFormat">${esc((file.name.split('.').pop() || 'Audio').toUpperCase())}</div></div><div class="stat"><div class="stat-label">Stems</div><div class="stat-value">6 layers</div></div></div>`;
+        $('changeFile').addEventListener('click', () => $('audioInput').click());
+        const url = URL.createObjectURL(file), audio = new Audio(); audio.preload = 'metadata'; audio.src = url;
+        audio.onloadedmetadata = () => { if (state.file === file) { const m = Math.floor(audio.duration / 60), s = Math.floor(audio.duration % 60); $('trackDuration').textContent = `${m}:${String(s).padStart(2,'0')}`; $('resultsDuration').textContent = `${m}:${String(s).padStart(2,'0')} TOTAL`; } URL.revokeObjectURL(url); };
+        audio.onerror = () => URL.revokeObjectURL(url);
+        $('dropContent').innerHTML = `<span class="upload-icon" aria-hidden="true">${icon('download')}</span><span class="drop-title">${esc(file.name)}</span><span class="drop-sub">${formatBytes(file.size)} · ready to separate</span>`;
+        $('jobStatus').textContent = 'Track loaded'; $('statusDot').classList.remove('is-working');
+        $('processBtn').textContent = 'Start separation'; $('processBtn').disabled = false;
+        $('processingNote').textContent = 'Source loaded. Start separation to preview the processing state.';
+        $('overallText').textContent = 'Ready to process'; $('overallFill').style.width = '0%';
+        stems.forEach(s => { $(`pct-${s.id}`).textContent = '—'; $(`fill-${s.id}`).style.width = '0%'; });
+        toast('Track loaded. Start separation to continue.');
+      }
+      function startProcessing() {
+        if (!state.file) { $('audioInput').click(); return; }
+        if (state.processing) return;
+        state.processing = true; state.ready = false;
+        $('processBtn').textContent = 'Processing…'; $('processBtn').disabled = true;
+        $('jobStatus').textContent = 'Separating'; $('statusDot').classList.add('is-working');
+        $('processingNote').textContent = 'Demo progress only — no audio separation is performed.';
+        $('overallText').textContent = 'Processing';
+        const start = Date.now(), duration = 4200;
+        const timer = setInterval(() => {
+          const elapsed = Math.min(1, (Date.now() - start) / duration);
+          const values = stems.map((_, i) => elapsed >= 1 ? 100 : Math.min(99, Math.max(0, Math.round(elapsed * 100 - i * 2))));
+          values.forEach((value, i) => { $(`pct-${stems[i].id}`).textContent = `${value}%`; $(`fill-${stems[i].id}`).style.width = `${value}%`; });
+          const overall = Math.round(values.reduce((a,b) => a + b, 0) / 6);
+          $('overallFill').style.width = `${overall}%`; $('overallText').textContent = `${overall}%`;
+          if (elapsed >= 1) {
+            clearInterval(timer); state.processing = false; state.ready = true;
+            $('processBtn').textContent = 'Demo complete'; $('processBtn').disabled = true;
+            $('jobStatus').textContent = 'Demo complete'; $('statusDot').classList.remove('is-working'); $('overallText').textContent = 'Complete · demo';
+            $('processingNote').textContent = 'The progress view is simulated. Stem preview and export actions show prototype feedback only.';
+            state.history.unshift({ name: state.file.name, date: new Date(), status: 'Demo' }); state.history = state.history.slice(0, 3); drawHistory();
+            toast('Demo processing complete.');
+          }
+        }, 110);
+      }
+      function drawHistory() {
+        $('historyCount').textContent = `${state.history.length} JOB${state.history.length === 1 ? '' : 'S'}`;
+        if (!state.history.length) { $('historyList').innerHTML = '<div class="history-empty">Completed sessions will be listed here.</div>'; return; }
+        $('historyList').innerHTML = state.history.map((h, i) => `<div class="history-row"><span class="history-file" title="${esc(h.name)}">${esc(h.name)}</span><span class="history-date">${h.date.toLocaleDateString(undefined,{month:'short',day:'numeric'})} · ${h.date.toLocaleTimeString(undefined,{hour:'2-digit',minute:'2-digit'})}</span><span class="history-status">${h.status}</span><button class="history-open" type="button" data-history="${i}">Reopen</button></div>`).join('');
+      }
+      function togglePlay(id) {
+        if (id === 'all') { state.played.clear(); stems.forEach(stem => state.played.add(stem.id)); }
+        else if (id === null || state.played.has(id)) state.played.clear();
+        else { state.played.clear(); state.played.add(id); }
+        document.querySelectorAll('.stem-row').forEach(row => {
+          const active = state.played.has(row.dataset.stem); const btn = row.querySelector('.play-stem');
+          btn.innerHTML = icon(active ? 'pause' : 'play'); btn.classList.toggle('is-playing', active); btn.setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${stems.find(s => s.id === row.dataset.stem).name}`);
+          row.querySelectorAll('.wave-bar').forEach((bar, i) => bar.classList.toggle('is-played', active && i < 16));
+        });
+        if (id === 'all') { const allOn = state.played.size > 0; $('playAllBtn').innerHTML = `${icon(allOn ? 'pause' : 'play')} ${allOn ? 'Pause all' : 'Play all'}`; }
+        else $('playAllBtn').innerHTML = `${icon('play')} Play all`;
+        toast(state.played.size ? 'Stem preview is simulated in this demo.' : 'Preview paused.');
+      }
+      $('audioInput').addEventListener('change', e => { setFile(e.target.files[0]); e.target.value = ''; });
+      $('dropzone').addEventListener('dragover', e => { e.preventDefault(); $('dropzone').classList.add('is-dragging'); });
+      $('dropzone').addEventListener('dragleave', () => $('dropzone').classList.remove('is-dragging'));
+      $('dropzone').addEventListener('drop', e => { e.preventDefault(); $('dropzone').classList.remove('is-dragging'); setFile(e.dataTransfer.files[0]); });
+      $('dropzone').addEventListener('click', e => { if (e.target.closest('button')) return; });
+      $('processBtn').addEventListener('click', startProcessing);
+      $('downloadAll').addEventListener('click', () => toast('ZIP export is a prototype control; no separated files are available.'));
+      $('playAllBtn').addEventListener('click', () => togglePlay(state.played.size ? null : 'all'));
+      $('stemRows').addEventListener('click', e => {
+        const row = e.target.closest('.stem-row'); if (!row) return; const id = row.dataset.stem;
+        if (e.target.closest('.play-stem')) togglePlay(id);
+        if (e.target.closest('.solo-stem')) {
+          state.solo = state.solo === id ? null : id;
+          document.querySelectorAll('.solo-stem').forEach(btn => btn.classList.toggle('is-active', btn.closest('.stem-row').dataset.stem === state.solo));
+          toast(state.solo ? `Solo ${stems.find(s => s.id === id).name}.` : 'Solo cleared.');
+        }
+        if (e.target.closest('.mute-stem')) {
+          if (state.muted.has(id)) state.muted.delete(id); else state.muted.add(id);
+          e.target.closest('.mute-stem').classList.toggle('is-active', state.muted.has(id));
+          toast(`${stems.find(s => s.id === id).name} ${state.muted.has(id) ? 'muted' : 'unmuted'}.`);
+        }
+        const exp = e.target.closest('.export-stem'); if (exp) toast(`${exp.dataset.format} export is a prototype control; no stem file is available.`);
+      });
+      $('stemRows').addEventListener('input', e => {
+        const input = e.target.closest('[data-volume]'); if (!input) return;
+        const row = input.closest('.stem-row'), val = input.value; row.querySelector('.volume-value').textContent = val;
+        input.style.background = `linear-gradient(to right, var(--stem-color) ${val}%, oklch(35% .01 240) ${val}%)`;
+        state.volumes[input.dataset.volume] = Number(val);
+      });
+      $('historyList').addEventListener('click', e => {
+        const btn = e.target.closest('[data-history]'); if (!btn) return;
+        const item = state.history[Number(btn.dataset.history)]; if (!item) return;
+        toast(`Reopened demo session: ${item.name}`); $('jobStatus').textContent = 'Demo session';
+      });
+      drawProgress(); drawStems(); drawHistory();
+    })();
+  </script>
+</body>
+</html>
