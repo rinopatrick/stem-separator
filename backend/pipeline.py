@@ -8,15 +8,19 @@ digital silence per silence-if-absent. residual carries mix minus the
 """
 from pathlib import Path
 
+import json
 import numpy as np
 import soundfile as sf
 
-import numpy as np
+import autotune
 import other_split
 import qa as qa_module
 import sidecars
+import vocal as vocal_module
 from config import SR
 from stemspec import STEM_NAMES
+
+BASE_VOCAL_MODEL_ID = vocal_module.BASE_VOCAL_MODEL_ID
 
 _BASE_TO_SLOT = {
     "vocals": "vocal",
@@ -31,12 +35,16 @@ def run_job(
     out_dir: Path,
     base_stems: dict[str, np.ndarray] | None = None,
     progress_cb=None,
+    use_vocal_upgrade: bool = False,
+    force_oom: bool = False,
 ) -> dict:
     """Run full T1 job from an audio file or pre-separated base stems.
 
     src: mix audio file (used when base_stems is None, via inference).
     base_stems: optional dict of 6s-base arrays keyed vocals/drums/bass/other.
-    Returns {"stems": [...], "sr": int}.
+    use_vocal_upgrade: route vocal through the KJ MelBand upgrade.
+    force_oom: test/CI hook forcing the CPU-fallback path.
+    Returns {"stems": [...], "sr": int, "vocal_info": {...}}.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     if base_stems is None:
@@ -69,7 +77,10 @@ def run_job(
     if mix.shape[1] != ch:
         mix = np.tile(mix[:, :1], (1, ch)) if mix.shape[1] == 1 else mix[:, :ch]
 
-    vocal = base_stems["vocals"][:n]
+    vocal, vocal_info = vocal_module.separate_vocal(
+        mix, sr, base_stems["vocals"][:n],
+        use_upgrade=use_vocal_upgrade, force_oom=force_oom,
+    )
     drums = base_stems["drums"][:n]
     bass = base_stems["bass"][:n]
     other = base_stems["other"][:n]
@@ -97,10 +108,65 @@ def run_job(
     total = sum(stems[name] for name in STEM_NAMES)
     residual = mix - total
     sf.write(str(out_dir / "residual.wav"), residual, sr)
-    sidecars.write_manifest(out_dir, stems, sr=sr)
+    plan = autotune.probe(
+        models=(BASE_VOCAL_MODEL_ID, vocal_module.VOCAL_MODEL_ID),
+        force_oom=force_oom,
+    )
+    active = plan[vocal_info["model_id"]]
+    sidecars.write_manifest(
+        out_dir, stems, sr=sr,
+        model=vocal_info["model_id"],
+        tile=active["tile"],
+        autotune=plan,
+    )
     sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr)
     qa_module.write_qa(out_dir, stems, sr=sr, runs=1, spread_db=0.0, limiter="none")
+    (out_dir / "ab_vocal.json").write_text(json.dumps(
+        vocal_ab_doc(base_stems, sr=sr,
+                     src=src if base_stems is None else None),
+        indent=2))
     n_mix = mix.shape[0]
     n_stem = min(np.asarray(stems[name]).shape[0] for name in STEM_NAMES)
     assert n_stem == n_mix, f"stem/mix length mismatch {n_stem} != {n_mix}"
-    return {"stems": STEM_NAMES, "sr": sr}
+    return {"stems": STEM_NAMES, "sr": sr, "vocal_info": vocal_info}
+
+
+def vocal_ab_doc(
+    base_stems: dict[str, np.ndarray],
+    sr: int = 44100,
+    src: Path | None = None,
+    runs: int = 1,
+    spread_db: float = 0.0,
+    limiter: str = "none",
+    clip: str = "clean-mix",
+) -> dict:
+    """A/B vocal scores with run count, spread, limiter.
+
+    Self-contained sibling of other_split.overlap_doc: scores base
+    vs upgraded vocal on the same 6s input so floors lock from
+    measured runs, not invented thresholds.
+    """
+    keys = [k for k in ("vocals", "drums", "bass", "other") if k in base_stems]
+    n = min(base_stems[k].shape[0] for k in keys)
+    mix = None
+    if src is not None and Path(src).exists():
+        import soundfile as _sf
+
+        mix, _ = _sf.read(str(src), dtype="float32", always_2d=True)
+    if mix is None:
+        mix = np.zeros_like(base_stems[keys[0]][:n])
+    else:
+        mix = np.asarray(mix[:n], dtype=np.float32)
+    variants = {
+        "base": np.asarray(base_stems["vocals"][:n], dtype=np.float32),
+        "upgraded": np.asarray(
+            vocal_module.separate_vocal(mix, sr, base_stems["vocals"][:n],
+                                          use_upgrade=True)[0], dtype=np.float32),
+    }
+    return {
+        "clip": clip,
+        "sr": sr,
+        "stems": qa_module.score_stems(variants, runs=runs,
+                                         spread_db=spread_db, limiter=limiter),
+        "clips": qa_module.score_clips(variants),
+    }

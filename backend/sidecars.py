@@ -20,6 +20,7 @@ def write_manifest(
     sr: int = 44100,
     model: str = "htdemucs_6s-placeholder",
     tile: int = 343980,
+    autotune: dict | None = None,
 ) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True)
     doc: dict = {"model": model, "tile": tile, "sr": sr, "stems": {}}
@@ -44,6 +45,8 @@ def write_manifest(
             "sha256_16": h,
         }
     p = out_dir / "manifest.json"
+    if autotune is not None:
+        doc["autotune"] = autotune
     p.write_text(json.dumps(doc, indent=2))
     return p
 
