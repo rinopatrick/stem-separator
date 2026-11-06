@@ -1,8 +1,12 @@
 """qa.json writer: SI-SDR estimates, leakage matrix, clip flags.
 
 Reads per-job stems off disk output only. No model internals.
-SI-SDR here is an energy-ratio estimate (target vs rest), recorded
-with run count, spread, and limiter so floors lock from measured runs.
+SI-SDR here is the scale-invariant projection of the target stem
+onto the rest (alpha = dot(t, r) / dot(r, r)), without a clean
+reference: it measures how much of the target is explained by the
+other stems. Large negative values mean the stem is distinct; values
+near zero or positive mean heavy bleed. Recorded with run count,
+spread, and limiter so floors lock from measured runs.
 """
 import json
 from pathlib import Path
@@ -25,8 +29,11 @@ def _sisdr_db(target: np.ndarray, rest: np.ndarray) -> float:
     n = min(t.size, r.size)
     t, r = t[:n], r[:n]
     eps = 1e-8
-    sig = float(np.dot(t, t)) + eps
-    noise = float(np.dot(t - r, t - r)) + eps
+    rr = float(np.dot(r, r)) + eps
+    alpha = float(np.dot(t, r)) / rr
+    proj = alpha * r
+    sig = float(np.dot(proj, proj)) + eps
+    noise = float(np.dot(t - proj, t - proj)) + eps
     return float(10.0 * np.log10(sig / noise))
 
 

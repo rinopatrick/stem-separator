@@ -31,3 +31,4 @@ button.on { background: var(--accent); color: #14201a; }
 .na { color: var(--muted); }
 .qa-badge { margin-left: 8px; background: #2a3340; border-radius: 4px; padding: 1px 6px; font-size: 10px; color: var(--muted); font-weight: 400; }
 .qa-badge.clip { background: #4a2a2a; color: #e89a9a; }
+.qa-badge.absent { background: #3a3a2a; color: #d8c87a; }

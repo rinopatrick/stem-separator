@@ -1,6 +1,5 @@
 """T2 red: stage-2 other-split — piano/guitar/strings specialists, synth leftover."""
 import sys
-import tempfile
 from pathlib import Path
 
 import numpy as np
@@ -22,6 +21,12 @@ def test_other_split_sums_to_other_by_construction():
     other = _other(n)
     parts = other_split.split_other(other)
     assert set(parts) == {"piano", "guitar", "strings", "synth"}
+    expected_synth = other.astype(np.float64) - (
+        parts["piano"].astype(np.float64)
+        + parts["guitar"].astype(np.float64)
+        + parts["strings"].astype(np.float64)
+    )
+    assert np.allclose(parts["synth"], expected_synth, atol=1e-6)
     total = sum(parts[k] for k in ("piano", "guitar", "strings", "synth"))
     assert np.allclose(total, other, atol=1e-5)
 
@@ -45,8 +50,6 @@ def test_specialist_slots_come_from_registry_models_not_base():
 
 
 def test_overlap_clip_scores_recorded_with_spread_and_limiter():
-    import json
-
     import other_split
 
     sr = SR
@@ -57,13 +60,10 @@ def test_overlap_clip_scores_recorded_with_spread_and_limiter():
     other = np.stack([piano_tone + guitar_tone, piano_tone + guitar_tone], axis=1)
     other = (other * 0.3).astype(np.float32)
     parts = other_split.split_other(other)
-    with tempfile.TemporaryDirectory() as td:
-        out = Path(td)
-        p = other_split.write_overlap_report(out, parts, sr=sr)
-        doc = json.loads(p.read_text())
-        assert doc["clip"] == "strings-plus-synth-overlap"
-        for name in ("piano", "guitar", "strings", "synth"):
-            entry = doc["stems"][name]
-            for key in ("sisdr_db", "spread_db", "runs", "limiter"):
-                assert key in entry, f"{name} missing {key}"
-            assert entry["runs"] >= 1
+    doc = other_split.overlap_doc(parts, sr=sr)
+    assert doc["clip"] == "strings-plus-synth-overlap"
+    for name in ("piano", "guitar", "strings", "synth"):
+        entry = doc["stems"][name]
+        for key in ("sisdr_db", "spread_db", "runs", "limiter"):
+            assert key in entry, f"{name} missing {key}"
+        assert entry["runs"] >= 1

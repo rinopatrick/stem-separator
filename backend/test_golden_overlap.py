@@ -17,10 +17,10 @@ N_RUNS = 3
 TOL_DB = 0.5
 
 EXPECTED_MEANS = {
-    "piano": 8.99,
-    "guitar": -13.55,
-    "strings": 1.41,
-    "synth": -45.57,
+    "piano": 9.21,
+    "guitar": 13.46,
+    "strings": 6.41,
+    "synth": -41.12,
 }
 EXPECTED_SPREAD = 0.0
 EXPECTED_LIMITER = "none"

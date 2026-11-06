@@ -11,6 +11,7 @@ from pathlib import Path
 import numpy as np
 import soundfile as sf
 
+import numpy as np
 import other_split
 import qa as qa_module
 import sidecars
@@ -98,5 +99,8 @@ def run_job(
     sf.write(str(out_dir / "residual.wav"), residual, sr)
     sidecars.write_manifest(out_dir, stems, sr=sr)
     sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr)
-    qa_module.write_qa(out_dir, stems, sr=sr)
+    qa_module.write_qa(out_dir, stems, sr=sr, runs=1, spread_db=0.0, limiter="none")
+    n_mix = mix.shape[0]
+    n_stem = min(np.asarray(stems[name]).shape[0] for name in STEM_NAMES)
+    assert n_stem == n_mix, f"stem/mix length mismatch {n_stem} != {n_mix}"
     return {"stems": STEM_NAMES, "sr": sr}

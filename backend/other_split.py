@@ -1,13 +1,13 @@
 """Stage-2 other-split: piano/guitar/strings specialists, synth leftover.
 
-Routes each slot through its registry specialist (model ids from
-stemspec, not the 6s base). CPU-only STFT masks, no model weights:
-piano takes low harmonic body, strings take sustained upper harmonics,
-guitar takes transient midrange. Masks are jointly normalized so the
-four slots sum to `other` exactly; synth is the leftover by
-construction and the 9 stems sum to the mix.
+T2 heuristic stand-in behind the registry specialist ids (model
+weights land in a later ticket): piano takes low harmonic body,
+strings take sustained upper harmonics, guitar takes transient
+midrange, all as CPU-only STFT masks. The trio masks are jointly
+normalized; each masked slot is reconstructed by ISTFT; synth is
+computed in the time domain as other minus piano minus guitar minus
+strings, so the four slots sum to `other` exactly by construction.
 """
-import json
 from pathlib import Path
 
 import numpy as np
@@ -63,20 +63,24 @@ def split_other(other: np.ndarray, sr: int = 44100) -> dict[str, np.ndarray]:
     if audio.ndim == 1:
         audio = audio[:, None]
     n, ch = audio.shape
-    parts: dict[str, list] = {"piano": [], "guitar": [], "strings": [], "synth": []}
+    trio: dict[str, list] = {"piano": [], "guitar": [], "strings": []}
     for c in range(ch):
         freqs, _, z = _stft(audio[:, c], sr)
         masks = _masks_for_channel(freqs, z)
-        for name, mask in masks.items():
-            _, rec = istft(mask * z, fs=sr, window="hann", nperseg=NPERSEG,
-                           noverlap=NOVERLAP)
+        for name in ("piano", "guitar", "strings"):
+            _, rec = istft(masks[name] * z, fs=sr, window="hann",
+                           nperseg=NPERSEG, noverlap=NOVERLAP)
             if rec.size < n:
                 rec = np.pad(rec, (0, n - rec.size))
-            parts[name].append(rec[:n])
-    return {
-        name: np.stack(chans, axis=1).astype(np.float32)
-        for name, chans in parts.items()
-    }
+            trio[name].append(rec[:n])
+    out: dict[str, np.ndarray] = {}
+    for name, chans in trio.items():
+        out[name] = np.stack(chans, axis=1).astype(np.float32)
+    synth64 = audio.astype(np.float64) - np.stack(
+        [out["piano"].astype(np.float64), out["guitar"].astype(np.float64),
+         out["strings"].astype(np.float64)], axis=0).sum(axis=0)
+    out["synth"] = synth64.astype(np.float32)
+    return out
 
 
 def split_report(other: np.ndarray, sr: int = 44100) -> dict[str, dict]:
@@ -96,19 +100,14 @@ def split_report(other: np.ndarray, sr: int = 44100) -> dict[str, dict]:
     return report
 
 
-def write_overlap_report(
-    out_dir: Path,
+def overlap_doc(
     parts: dict[str, np.ndarray],
     sr: int = 44100,
     clip: str = "strings-plus-synth-overlap",
-) -> Path:
-    out_dir.mkdir(parents=True, exist_ok=True)
-    doc = {
+) -> dict:
+    return {
         "clip": clip,
         "sr": sr,
         "stems": qa_module.score_stems(parts, runs=1, spread_db=0.0, limiter="none"),
         "clips": qa_module.score_clips(parts),
     }
-    p = out_dir / "overlap_qa.json"
-    p.write_text(json.dumps(doc, indent=2))
-    return p

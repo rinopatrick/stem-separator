@@ -63,13 +63,43 @@ export function qaUrl(jobId: string): string {
   return `${API}/jobs/${jobId}/sidecars/qa.json`;
 }
 
+export function manifestUrl(jobId: string): string {
+  return `${API}/jobs/${jobId}/sidecars/manifest.json`;
+}
+
+export interface ManifestStem {
+  file: string;
+  present: boolean;
+  confidence: number;
+  source: string;
+  reason: string;
+}
+
+export interface ManifestDoc {
+  model: string;
+  tile: number;
+  sr: number;
+  stems: Record<Stem, ManifestStem>;
+}
+
 export async function fetchQa(jobId: string): Promise<QaDoc | null> {
   const r = await fetch(qaUrl(jobId));
   if (!r.ok) return null;
   return r.json();
 }
 
-export function qaBadge(entry: QaEntry | undefined, clip: QaClip | undefined): string {
+export async function fetchManifest(jobId: string): Promise<ManifestDoc | null> {
+  const r = await fetch(manifestUrl(jobId));
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export function qaBadge(
+  entry: QaEntry | undefined,
+  clip: QaClip | undefined,
+  manifest: ManifestStem | undefined,
+): string {
+  if (manifest && !manifest.present) return `absent (conf ${manifest.confidence})`;
   if (!entry) return "n/a";
   if (clip?.flagged) return `clip ${entry.sisdr_db.toFixed(1)} dB`;
   return `${entry.sisdr_db.toFixed(1)} dB`;

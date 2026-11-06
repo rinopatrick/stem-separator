@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { STEMS, cancelJob, fetchQa, qaBadge, stemUrl, subscribeJob, uploadJob, type JobStatus, type QaDoc, type Stem } from "./api";
+import { STEMS, cancelJob, fetchManifest, fetchQa, qaBadge, stemUrl, subscribeJob, uploadJob, type JobStatus, type ManifestDoc, type QaDoc, type Stem } from "./api";
 
 interface StemState {
   solo: boolean;
@@ -17,6 +17,7 @@ export default function App() {
   const [job, setJob] = useState<JobStatus | null>(null);
   const [stems, setStems] = useState(initialStems);
   const [qa, setQa] = useState<QaDoc | null>(null);
+  const [manifest, setManifest] = useState<ManifestDoc | null>(null);
   const [playing, setPlaying] = useState<Stem | "all" | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const [drag, setDrag] = useState(false);
@@ -28,9 +29,13 @@ export default function App() {
     const { job_id } = await uploadJob(f);
     setJob({ job_id, status: "queued", progress: 0 });
     setQa(null);
+    setManifest(null);
     subscribeJob(job_id, (s) => {
       setJob(s);
-      if (s.status === "done") void fetchQa(job_id).then(setQa);
+      if (s.status === "done") {
+        void fetchQa(job_id).then(setQa);
+        void fetchManifest(job_id).then(setManifest);
+      }
     });
   };
 
@@ -106,7 +111,7 @@ export default function App() {
           {STEMS.map((s) => (
             <div className="stem-row" key={s}>
               <span className="stem-name">{s}{qa && (
-                <span className={`qa-badge${qa.clips.find((c) => c.stem === s)?.flagged ? " clip" : ""}`} title={`SI-SDR estimate, ${qa.stems[s]?.runs ?? 0} runs, spread ${qa.stems[s]?.spread_db ?? 0} dB, limiter ${qa.stems[s]?.limiter ?? "none"}`}>{qaBadge(qa.stems[s], qa.clips.find((c) => c.stem === s))}</span>
+                <span className={`qa-badge${qa.clips.find((c) => c.stem === s)?.flagged ? " clip" : ""}${manifest && !manifest.stems[s]?.present ? " absent" : ""}`} title={`SI-SDR estimate, ${qa.stems[s]?.runs ?? 0} runs, spread ${qa.stems[s]?.spread_db ?? 0} dB, limiter ${qa.stems[s]?.limiter ?? "none"}${manifest ? `, manifest present=${manifest.stems[s]?.present} conf=${manifest.stems[s]?.confidence}` : ""}`}>{qaBadge(qa.stems[s], qa.clips.find((c) => c.stem === s), manifest?.stems[s])}</span>
               )}</span>
               <div className="stem-btns">
                 <button disabled={!job || job.status !== "done"} onClick={() => togglePlay(s)}>
