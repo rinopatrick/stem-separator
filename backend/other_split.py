@@ -7,6 +7,7 @@ guitar takes transient midrange. Masks are jointly normalized so the
 four slots sum to `other` exactly; synth is the leftover by
 construction and the 9 stems sum to the mix.
 """
+import json
 from pathlib import Path
 
 import numpy as np
@@ -35,16 +36,18 @@ def _band(freqs: np.ndarray, lo: float, hi: float, edge: float = 120.0) -> np.nd
     return w
 
 
-def _masks_for_channel(x: np.ndarray, sr: int) -> dict[str, np.ndarray]:
-    freqs, _, z = stft(x, fs=sr, window="hann", nperseg=NPERSEG,
-                       noverlap=NOVERLAP, boundary="zeros")
+def _stft(x: np.ndarray, sr: int):
+    return stft(x, fs=sr, window="hann", nperseg=NPERSEG,
+                noverlap=NOVERLAP, boundary="zeros")
+
+
+def _masks_for_channel(freqs: np.ndarray, z: np.ndarray) -> dict[str, np.ndarray]:
     mag = np.abs(z)
     harm_w, perc_w = _hpss_weights(mag)
-    f = freqs[:, None] if False else freqs
-    piano = harm_w * _band(f, 55.0, 2100.0)[:, None]
-    strings = harm_w * _band(f, 300.0, 8000.0)[:, None]
-    guitar = (perc_w * _band(f, 150.0, 6000.0)[:, None]
-              + 0.3 * harm_w * _band(f, 150.0, 6000.0)[:, None])
+    piano = harm_w * _band(freqs, 55.0, 2100.0)[:, None]
+    strings = harm_w * _band(freqs, 300.0, 8000.0)[:, None]
+    guitar = (perc_w * _band(freqs, 150.0, 6000.0)[:, None]
+              + 0.3 * harm_w * _band(freqs, 150.0, 6000.0)[:, None])
     total = piano + strings + guitar
     over = total > 1.0
     total_safe = np.where(over, total, 1.0)
@@ -62,9 +65,8 @@ def split_other(other: np.ndarray, sr: int = 44100) -> dict[str, np.ndarray]:
     n, ch = audio.shape
     parts: dict[str, list] = {"piano": [], "guitar": [], "strings": [], "synth": []}
     for c in range(ch):
-        masks = _masks_for_channel(audio[:, c], sr)
-        _, _, z = stft(audio[:, c], fs=sr, window="hann", nperseg=NPERSEG,
-                       noverlap=NOVERLAP, boundary="zeros")
+        freqs, _, z = _stft(audio[:, c], sr)
+        masks = _masks_for_channel(freqs, z)
         for name, mask in masks.items():
             _, rec = istft(mask * z, fs=sr, window="hann", nperseg=NPERSEG,
                            noverlap=NOVERLAP)
@@ -108,5 +110,5 @@ def write_overlap_report(
         "clips": qa_module.score_clips(parts),
     }
     p = out_dir / "overlap_qa.json"
-    p.write_text(__import__("json").dumps(doc, indent=2))
+    p.write_text(json.dumps(doc, indent=2))
     return p
