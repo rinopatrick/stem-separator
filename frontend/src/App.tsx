@@ -61,7 +61,7 @@ export default function App() {
           <span className="workspace-name">Audio workspace</span>
         </div>
         <div className="header-right">
-          <span className="engine-label">6-STEM ENGINE / WAV · MP3</span>
+          <span className="engine-label">9-STEM ENGINE / WAV · MP3</span>
           <span className="job-state">
             <span className={`dot ${job && job.status !== "done" ? "working" : ""}`} />
             {job ? `${job.status} ${Math.round(job.progress * 100)}%` : "Ready"}
@@ -70,7 +70,7 @@ export default function App() {
       </header>
       <main>
         <h1>Separate your mix</h1>
-        <p className="intro">Split a track into six editable stems, then audition and export each layer.</p>
+        <p className="intro">Split a track into nine editable stems, then audition and export each layer.</p>
         <section className="upload-row">
           <label
             className={`dropzone${drag ? " dragging" : ""}`}
@@ -93,7 +93,7 @@ export default function App() {
         </section>
         <section className="stems">
           <div className="stems-head">
-            <h2>Separated stems <span className="pill">06</span></h2>
+            <h2>Separated stems <span className="pill">09</span></h2>
             <button disabled={!job || job.status !== "done"} onClick={() => togglePlay("all")}>
               {playing === "all" ? "Stop all" : "Play all"}
             </button>

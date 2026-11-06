@@ -88,7 +88,7 @@ def list_jobs():
 
 @app.get("/jobs/{job_id}/stems/{stem}")
 def download_stem(job_id: str, stem: str):
-    if stem not in config.STEMS:
+    if stem not in config.STEMS and stem != "residual":
         raise HTTPException(404, "unknown stem")
     p = config.RESULT_DIR / job_id / f"{stem}.wav"
     if not p.exists():

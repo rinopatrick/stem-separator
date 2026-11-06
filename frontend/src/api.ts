@@ -1,5 +1,6 @@
-export const STEMS = ["vocals", "drums", "bass", "piano", "guitar", "other"] as const;
+export const STEMS = ["vocal", "drums", "bass", "piano", "guitar", "strings", "synth", "cue", "click"] as const;
 export type Stem = (typeof STEMS)[number];
+export type DownloadStem = Stem | "residual";
 
 export interface JobStatus {
   job_id: string;
@@ -30,7 +31,7 @@ export function subscribeJob(jobId: string, onMsg: (s: JobStatus) => void): () =
   return () => es.close();
 }
 
-export function stemUrl(jobId: string, stem: Stem): string {
+export function stemUrl(jobId: string, stem: DownloadStem): string {
   return `${API}/jobs/${jobId}/stems/${stem}`;
 }
 

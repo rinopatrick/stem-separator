@@ -12,7 +12,7 @@ import onnxruntime as ort
 import soundfile as sf
 from huggingface_hub import hf_hub_download
 
-from config import CHUNK_SAMPLES, MODEL_FILE, MODEL_ID, SR, STEMS
+from config import BASE_STEMS, CHUNK_SAMPLES, MODEL_FILE, MODEL_ID, SR
 
 _session = None
 
@@ -36,7 +36,7 @@ def separate_file(src: Path, out_dir: Path, progress_cb=None) -> list[Path]:
         audio = soxr.resample(audio.T, sr, SR).T
     audio = audio.T  # (ch, n)
     n = audio.shape[1]
-    outs = [np.zeros_like(audio) for _ in STEMS]
+    outs = [np.zeros_like(audio) for _ in BASE_STEMS]
     counts = np.zeros(n, dtype=np.float32)
     n_chunks = (n + CHUNK_SAMPLES - 1) // CHUNK_SAMPLES
     for i in range(n_chunks):
@@ -46,14 +46,14 @@ def separate_file(src: Path, out_dir: Path, progress_cb=None) -> list[Path]:
         L = e - s
         chunk[0, :, :L] = audio[:, s:e]
         (stems,) = sess.run(None, {inp_name: chunk})  # (1,6,2,N)
-        for k in range(len(STEMS)):
+        for k in range(len(BASE_STEMS)):
             outs[k][:, s:e] += stems[0, k, :, :L]
         counts[s:e] += 1
         if progress_cb:
             progress_cb((i + 1) / n_chunks)
     out_dir.mkdir(parents=True, exist_ok=True)
     paths = []
-    for k, name in enumerate(STEMS):
+    for k, name in enumerate(BASE_STEMS):
         mix = outs[k] / np.maximum(counts, 1)
         p = out_dir / f"{name}.wav"
         sf.write(str(p), mix.T, SR)

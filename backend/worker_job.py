@@ -4,7 +4,7 @@ from pathlib import Path
 from rq import get_current_job
 
 import config
-from inference import separate_file
+from pipeline import run_job
 
 
 def job_separate(job_id: str, src_name: str) -> dict:
@@ -27,8 +27,8 @@ def job_separate(job_id: str, src_name: str) -> dict:
             job.meta["progress"] = round(frac, 3)
             job.save_meta()
 
-    paths = separate_file(src, out_dir, progress_cb=cb)
+    paths = run_job(src, out_dir, progress_cb=cb)
     if job:
         job.meta["progress"] = 1.0
         job.save_meta()
-    return {"stems": [p.name for p in paths]}
+    return {"stems": paths["stems"]}

@@ -1,4 +1,5 @@
-"""E2E: upload sintetik 10 detik -> antrean sync (fakeredis) -> 6 WAV keluar."""
+"""E2E: 10s synth -> job_separate -> 9 stems + residual + sidecars."""
+import json
 import sys
 import wave
 from pathlib import Path
@@ -6,7 +7,6 @@ from pathlib import Path
 import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-import fakeredis  # noqa: E402
 
 import config  # noqa: E402
 from worker_job import job_separate  # noqa: E402
@@ -24,6 +24,14 @@ def make_audio(p: Path):
     sf.write(str(p), stereo, SR)
 
 
+def check_wav(p: Path) -> bool:
+    with wave.open(str(p), "rb") as w:
+        dur = w.getnframes() / w.getframerate()
+        ch = w.getnchannels()
+        print(f"  {p.name}: {dur:.1f}s, {ch}ch, {p.stat().st_size // 1024}KB")
+        return abs(dur - DUR) < 0.5 and ch == 2
+
+
 def main():
     config.UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
     config.RESULT_DIR.mkdir(parents=True, exist_ok=True)
@@ -33,14 +41,46 @@ def main():
     out = job_separate("e2e_test", src.name)
     print("stems:", out["stems"])
     ok = True
-    for name in out["stems"]:
-        p = config.RESULT_DIR / "e2e_test" / name
-        with wave.open(str(p), "rb") as w:
-            dur = w.getnframes() / w.getframerate()
-            ch = w.getnchannels()
-            print(f"  {name}: {dur:.1f}s, {ch}ch, {p.stat().st_size // 1024}KB")
-            if abs(dur - DUR) > 0.5 or ch != 2:
-                ok = False
+    expected = [
+        "vocal",
+        "drums",
+        "bass",
+        "piano",
+        "guitar",
+        "strings",
+        "synth",
+        "cue",
+        "click",
+    ]
+    if out["stems"] != expected:
+        print(f"FAIL: stems {out['stems']} != {expected}")
+        ok = False
+    for name in expected + ["residual"]:
+        p = config.RESULT_DIR / "e2e_test" / f"{name}.wav"
+        if not p.exists():
+            print(f"FAIL: missing {p}")
+            ok = False
+            continue
+        if not check_wav(p):
+            print(f"FAIL: bad audio {p}")
+            ok = False
+    for sidecar in ("manifest.json", "tempo_map.json"):
+        p = config.RESULT_DIR / "e2e_test" / sidecar
+        if not p.exists():
+            print(f"FAIL: missing {p}")
+            ok = False
+            continue
+        doc = json.loads(p.read_text())
+        print(f"  {sidecar}: keys={sorted(doc)[:6]}")
+    manifest = json.loads((config.RESULT_DIR / "e2e_test" / "manifest.json").read_text())
+    if set(manifest["stems"]) != set(expected):
+        print("FAIL: manifest stems mismatch")
+        ok = False
+    tempo = json.loads((config.RESULT_DIR / "e2e_test" / "tempo_map.json").read_text())
+    for key in ("beats", "bpm_over_time", "confidence_global", "present"):
+        if key not in tempo:
+            print(f"FAIL: tempo_map missing {key}")
+            ok = False
     print("E2E PASS" if ok else "E2E FAIL")
     sys.exit(0 if ok else 1)
 
