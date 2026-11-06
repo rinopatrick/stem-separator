@@ -26,7 +26,6 @@ BPM_MIN = 40.0
 BPM_MAX = 220.0
 PRESENT_PEAK = 0.10
 PRESENT_MIN_BEATS = 4
-METRONOME_MODELS = ("beat-this-small0",)
 
 MODEL_ID = BY_NAME["click"].model_id
 

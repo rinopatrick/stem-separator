@@ -75,7 +75,10 @@ export default function App() {
         </div>
         <div className="header-right">
           <span className="engine-label">9-STEM ENGINE / WAV · MP3</span>
-          {tempoReadout(tempo) && <span className="tempo-readout">♩ {tempoReadout(tempo)}</span>}
+          {(() => {
+            const readout = tempoReadout(tempo);
+            return readout ? <span className="tempo-readout">♩ {readout}</span> : null;
+          })()}
           <span className="job-state">
             <span className={`dot ${job && job.status !== "done" ? "working" : ""}`} />
             {job ? `${job.status} ${Math.round(job.progress * 100)}%` : "Ready"}

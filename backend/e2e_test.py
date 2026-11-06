@@ -84,10 +84,31 @@ def main():
         print("FAIL: qa missing leakage/clips")
         ok = False
     tempo = json.loads((config.RESULT_DIR / "e2e_test" / "tempo_map.json").read_text())
-    for key in ("beats", "bpm_over_time", "confidence_global", "present"):
+    for key in ("beats", "downbeats", "bpm_over_time", "meter",
+                "confidence_global", "confidence", "present"):
         if key not in tempo:
             print(f"FAIL: tempo_map missing {key}")
             ok = False
+    # T4 silence-if-absent: synth bed has no metronome, so the E2E
+    # click must arrive silent with present false and low confidence.
+    import soundfile as _sf
+    e2e_click, _ = _sf.read(
+        str(config.RESULT_DIR / "e2e_test" / "click.wav"), dtype="float32")
+    if float(np.max(np.abs(e2e_click))) != 0.0:
+        print("FAIL: e2e click not silent on metronome-free bed")
+        ok = False
+    if tempo.get("present") is not False:
+        print("FAIL: e2e tempo present should be False")
+        ok = False
+    if tempo.get("confidence_global", 1.0) > 0.2:
+        print("FAIL: e2e tempo confidence above 0.2")
+        ok = False
+    if manifest["stems"]["click"]["present"] is not False:
+        print("FAIL: e2e manifest click present should be False")
+        ok = False
+    if manifest["stems"]["click"]["confidence"] > 0.2:
+        print("FAIL: e2e manifest click confidence above 0.2")
+        ok = False
     print("E2E PASS" if ok else "E2E FAIL")
     sys.exit(0 if ok else 1)
 
