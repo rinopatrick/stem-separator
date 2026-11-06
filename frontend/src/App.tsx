@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { STEMS, cancelJob, fetchManifest, fetchQa, qaBadge, stemUrl, subscribeJob, uploadJob, type JobStatus, type ManifestDoc, type QaDoc, type Stem } from "./api";
+import { STEMS, cancelJob, fetchManifest, fetchQa, fetchTempo, qaBadge, stemUrl, subscribeJob, tempoReadout, uploadJob, type JobStatus, type ManifestDoc, type QaDoc, type Stem, type TempoDoc } from "./api";
 
 interface StemState {
   solo: boolean;
@@ -18,6 +18,7 @@ export default function App() {
   const [stems, setStems] = useState(initialStems);
   const [qa, setQa] = useState<QaDoc | null>(null);
   const [manifest, setManifest] = useState<ManifestDoc | null>(null);
+  const [tempo, setTempo] = useState<TempoDoc | null>(null);
   const [playing, setPlaying] = useState<Stem | "all" | null>(null);
   const audioRefs = useRef<Record<string, HTMLAudioElement | null>>({});
   const [drag, setDrag] = useState(false);
@@ -30,11 +31,13 @@ export default function App() {
     setJob({ job_id, status: "queued", progress: 0 });
     setQa(null);
     setManifest(null);
+    setTempo(null);
     subscribeJob(job_id, (s) => {
       setJob(s);
       if (s.status === "done") {
         void fetchQa(job_id).then(setQa);
         void fetchManifest(job_id).then(setManifest);
+        void fetchTempo(job_id).then(setTempo);
       }
     });
   };
@@ -72,6 +75,7 @@ export default function App() {
         </div>
         <div className="header-right">
           <span className="engine-label">9-STEM ENGINE / WAV · MP3</span>
+          {tempoReadout(tempo) && <span className="tempo-readout">♩ {tempoReadout(tempo)}</span>}
           <span className="job-state">
             <span className={`dot ${job && job.status !== "done" ? "working" : ""}`} />
             {job ? `${job.status} ${Math.round(job.progress * 100)}%` : "Ready"}

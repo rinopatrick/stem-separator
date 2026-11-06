@@ -13,6 +13,7 @@ import numpy as np
 import soundfile as sf
 
 import autotune
+import click_tracker as click_module
 import other_split
 import qa as qa_module
 import sidecars
@@ -90,7 +91,13 @@ def run_job(
     strings = parts["strings"]
     synth = parts["synth"]
     cue = np.zeros_like(mix)
-    click = np.zeros_like(mix)
+    tracked = click_module.track_click(np.asarray(mix), sr=sr)
+    click = np.asarray(tracked["click"], dtype=np.float32)
+    if click.shape != mix.shape:
+        click = np.zeros_like(mix)
+    click_info = {k: tracked[k] for k in (
+        "beats", "downbeats", "bpm_over_time", "meter",
+        "confidence_global", "present", "reason") if k in tracked}
 
     stems: dict[str, np.ndarray] = {
         "vocal": vocal,
@@ -118,8 +125,10 @@ def run_job(
         model=vocal_info["model_id"],
         tile=active["tile"],
         autotune=plan,
+        click_info=click_info,
     )
-    sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr)
+    sidecars.write_tempo_map(out_dir, n_frames=n, sr=sr,
+                               click_info=click_info)
     qa_module.write_qa(out_dir, stems, sr=sr, runs=1, spread_db=0.0, limiter="none")
     (out_dir / "ab_vocal.json").write_text(json.dumps(
         vocal_ab_doc(base_stems, sr=sr,

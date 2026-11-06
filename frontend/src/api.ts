@@ -67,6 +67,40 @@ export function manifestUrl(jobId: string): string {
   return `${API}/jobs/${jobId}/sidecars/manifest.json`;
 }
 
+export interface TempoEntry {
+  start_s: number;
+  end_s: number;
+  bpm: number;
+}
+
+export interface TempoDoc {
+  beats: number[];
+  downbeats: number[] | null;
+  bpm_over_time: TempoEntry[];
+  meter: string;
+  confidence_global: number;
+  present: boolean;
+  reason: string;
+}
+
+export function tempoUrl(jobId: string): string {
+  return `${API}/jobs/${jobId}/sidecars/tempo_map.json`;
+}
+
+export async function fetchTempo(jobId: string): Promise<TempoDoc | null> {
+  const r = await fetch(tempoUrl(jobId));
+  if (!r.ok) return null;
+  return r.json();
+}
+
+export function tempoReadout(tempo: TempoDoc | null): string | null {
+  if (!tempo || !tempo.present) return null;
+  if (tempo.confidence_global < 0.5) return null;
+  if (!tempo.bpm_over_time.length) return null;
+  const latest = tempo.bpm_over_time[tempo.bpm_over_time.length - 1];
+  return `${latest.bpm.toFixed(0)} BPM · ${tempo.meter} · conf ${tempo.confidence_global.toFixed(2)}`;
+}
+
 export interface ManifestStem {
   file: string;
   present: boolean;
